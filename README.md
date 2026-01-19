@@ -4,11 +4,13 @@ Self-hosted paste service with ChatGPT-style interface for seamless text sharing
 
 ## What is this?
 
-A web app that looks and feels like ChatGPT, but for your personal text dumps:
+**The whole point:** Share text on phone → instantly on PC. No apps, no forms, 2 seconds.
+
+A web app with ChatGPT-style interface for your personal text dumps:
+- **🎯 Android share menu**: Select text → Share → "Paste Server" → DONE
 - **Sidebar**: Date-grouped paste history (Today, Yesterday, etc.)
 - **Main area**: Clean reading space with latest paste always visible
 - **Dark mode**: Built-in toggle, persists preference
-- **Android integration**: Share menu → directly to your server
 - **Password protected**: Simple single-password auth
 - **Infinite history**: No limits, lazy loading
 
@@ -71,11 +73,17 @@ paste-server/
 
 ## Documentation
 
+**Start here:**
+- [**🎯 ANDROID_FIRST.md**](docs/ANDROID_FIRST.md) - THE WHOLE POINT: Phone share menu integration
+- [**ANDROID_INTEGRATION.md**](docs/ANDROID_INTEGRATION.md) - Detailed Android setup with troubleshooting
+
+**Architecture:**
 - [**FINAL_PLAN.md**](docs/FINAL_PLAN.md) - Complete architecture and features
 - [**UI_MOCKUP.md**](docs/UI_MOCKUP.md) - Visual design reference
 - [**CHECKLIST.md**](docs/CHECKLIST.md) - Implementation tracking
-- [**SETUP.md**](docs/SETUP.md) - Deployment guide _(coming soon)_
-- [**ANDROID.md**](docs/ANDROID.md) - Phone integration _(coming soon)_
+
+**Deployment:** _(coming soon)_
+- [**SETUP.md**](docs/SETUP.md) - Full deployment guide (DuckDNS + Docker + SSL)
 
 ## Tech Stack
 
