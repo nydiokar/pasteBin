@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paste Server</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="light">
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-container">
+        <div class="login-box">
+            <h1>🔒 Paste Server</h1>
+            <form id="login-form">
+                <input type="password" id="password-input" placeholder="Enter password" autocomplete="current-password" required>
+                <button type="submit">Login</button>
+                <p id="login-error" class="error hidden"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="hidden">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="top-bar-left">
+                <button id="sidebar-toggle" class="icon-btn mobile-only">☰</button>
+                <h1>Paste Dumps</h1>
+            </div>
+            <div class="top-bar-right">
+                <button id="new-paste-btn" class="primary-btn">+ New Dump</button>
+                <button id="refresh-btn" class="icon-btn" title="Refresh pastes">🔄</button>
+                <button id="theme-toggle" class="icon-btn" title="Toggle dark mode">🌙</button>
+                <button id="logout-btn" class="icon-btn" title="Logout">🔒</button>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Sidebar -->
+            <aside id="sidebar" class="sidebar">
+                <div class="sidebar-search">
+                    <input type="text" id="search-input" placeholder="Search pastes...">
+                </div>
+                <div id="sidebar-content" class="sidebar-content">
+                    <div class="loading">Loading pastes...</div>
+                </div>
+            </aside>
+
+            <!-- Main Area -->
+            <main class="main-area">
+                <div id="main-content" class="main-content">
+                    <div class="empty-state">
+                        <p>No pastes yet. Click "+ New Dump" to create one.</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- New Paste Modal -->
+    <div id="new-paste-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>New Dump</h2>
+                <button class="modal-close">✕</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="new-paste-textarea" placeholder="Paste your text here..." autofocus></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-paste-btn" class="secondary-btn">Cancel</button>
+                <button id="save-paste-btn" class="primary-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2>Delete Paste?</h2>
+            </div>
+            <div class="modal-body">
+                <p>This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-delete-btn" class="secondary-btn">Cancel</button>
+                <button id="confirm-delete-btn" class="danger-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
