@@ -247,60 +247,54 @@ function renderMainArea(pasteId) {
         return;
     }
 
-    // Get up to 3 pastes starting from selected one
-    const pastesToShow = state.pastes.slice(selectedIndex, selectedIndex + 3);
+    // Show only the selected paste
+    const paste = state.pastes[selectedIndex];
 
-    const pastesHtml = pastesToShow.map(paste => {
-        const fullTimestamp = new Date(paste.created_at).toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-        });
+    const fullTimestamp = new Date(paste.created_at).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    });
 
-        let bodyHtml;
-        if (paste.filename) {
-            const ext = paste.filename.split('.').pop().toLowerCase();
-            const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
-            if (isImage) {
-                bodyHtml = `
-                    <div class="paste-content file-content">
-                        <img class="paste-image" src="/api/file/${paste.id}" alt="${escapeHtml(paste.filename)}">
-                        <div class="file-caption">${escapeHtml(paste.filename)}</div>
-                    </div>`;
-            } else {
-                bodyHtml = `
-                    <div class="paste-content file-content">
-                        <div class="file-download-box">
-                            <span class="file-download-icon">${getFileIcon(paste.filename)}</span>
-                            <span class="file-download-name">${escapeHtml(paste.filename)}</span>
-                            <a href="/api/file/${paste.id}" download class="file-download-btn primary-btn btn-small">⬇ Download</a>
-                        </div>
-                    </div>`;
-            }
+    let bodyHtml;
+    if (paste.filename) {
+        const ext = paste.filename.split('.').pop().toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+        if (isImage) {
+            bodyHtml = `
+                <div class="paste-content file-content">
+                    <img class="paste-image" src="/api/file/${paste.id}" alt="${escapeHtml(paste.filename)}">
+                    <div class="file-caption">${escapeHtml(paste.filename)}</div>
+                </div>`;
         } else {
-            bodyHtml = `<div class="paste-content">${escapeHtml(paste.content)}</div>`;
-        }
-
-        return `
-            <div class="paste-card">
-                <div class="paste-header">
-                    <span class="paste-timestamp">${fullTimestamp}</span>
-                    <div class="paste-actions">
-                        <button class="secondary-btn btn-small" onclick="copyItem(${paste.id}, event)">
-                            📋 Copy
-                        </button>
-                        <button class="danger-btn btn-small" onclick="showDeleteModal(${paste.id})">
-                            🗑️ Delete
-                        </button>
+            bodyHtml = `
+                <div class="paste-content file-content">
+                    <div class="file-download-box">
+                        <span class="file-download-icon">${getFileIcon(paste.filename)}</span>
+                        <span class="file-download-name">${escapeHtml(paste.filename)}</span>
+                        <a href="/api/file/${paste.id}" download class="file-download-btn primary-btn btn-small">↓ Download</a>
                     </div>
+                </div>`;
+        }
+    } else {
+        bodyHtml = `<div class="paste-content">${escapeHtml(paste.content)}</div>`;
+    }
+
+    const pastesHtml = `
+        <div class="paste-card">
+            <div class="paste-header">
+                <span class="paste-timestamp">${fullTimestamp}</span>
+                <div class="paste-actions">
+                    <button class="secondary-btn btn-small" onclick="copyItem(${paste.id}, event)">Copy</button>
+                    <button class="danger-btn btn-small" onclick="showDeleteModal(${paste.id})">Delete</button>
                 </div>
-                ${bodyHtml}
             </div>
-        `;
-    }).join('');
+            ${bodyHtml}
+        </div>
+    `;
 
     mainContent.innerHTML = `
         <div class="paste-display">
