@@ -19,6 +19,21 @@ const state = {
     searchQuery: '',
 };
 
+let selectedFile = null;
+
+function setSelectedFile(file) {
+    selectedFile = file;
+    document.getElementById('file-selected-info').classList.remove('hidden');
+    document.getElementById('file-selected-name').textContent = `${getFileIcon(file.name)}  ${file.name}`;
+}
+
+function clearSelectedFile() {
+    selectedFile = null;
+    document.getElementById('file-selected-info').classList.add('hidden');
+    document.getElementById('file-selected-name').textContent = '';
+    document.getElementById('file-input').value = '';
+}
+
 // ============================================================================
 // API Layer - Pure functions returning promises
 // ============================================================================
@@ -60,6 +75,21 @@ const api = {
             credentials: 'include',
         });
         if (!response.ok) throw new Error('Failed to create paste');
+        return response.json();
+    },
+
+    async uploadFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || 'Upload failed');
+        }
         return response.json();
     },
 
@@ -149,11 +179,13 @@ function updateThemeIcon(theme) {
 function renderSidebar(pastes, searchQuery = '') {
     const sidebarContent = document.getElementById('sidebar-content');
 
-    // Filter pastes by search query
+    // Filter pastes by search query (match content for text, filename for files)
     const filteredPastes = searchQuery
-        ? pastes.filter(p =>
-              p.content.toLowerCase().includes(searchQuery.toLowerCase())
-          )
+        ? pastes.filter(p => {
+              const q = searchQuery.toLowerCase();
+              if (p.filename) return p.filename.toLowerCase().includes(q);
+              return p.content.toLowerCase().includes(q);
+          })
         : pastes;
 
     if (filteredPastes.length === 0) {
@@ -182,7 +214,13 @@ function renderSidebar(pastes, searchQuery = '') {
                             data-paste-id="${paste.id}"
                             onclick="selectPaste(${paste.id})">
                             <div class="paste-time">${formatTimestamp(paste.created_at)}</div>
-                            <div class="paste-preview">${truncateText(paste.content, 50)}</div>
+                            ${paste.filename
+                                ? `<div class="paste-preview file-preview">
+                                    <span class="file-icon">${getFileIcon(paste.filename)}</span>
+                                    <span class="file-name">${escapeHtml(paste.filename)}</span>
+                                  </div>`
+                                : `<div class="paste-preview">${truncateText(paste.content, 50)}</div>`
+                            }
                         </li>
                     `
                         )
@@ -222,12 +260,36 @@ function renderMainArea(pasteId) {
             hour12: true,
         });
 
+        let bodyHtml;
+        if (paste.filename) {
+            const ext = paste.filename.split('.').pop().toLowerCase();
+            const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+            if (isImage) {
+                bodyHtml = `
+                    <div class="paste-content file-content">
+                        <img class="paste-image" src="/api/file/${paste.id}" alt="${escapeHtml(paste.filename)}">
+                        <div class="file-caption">${escapeHtml(paste.filename)}</div>
+                    </div>`;
+            } else {
+                bodyHtml = `
+                    <div class="paste-content file-content">
+                        <div class="file-download-box">
+                            <span class="file-download-icon">${getFileIcon(paste.filename)}</span>
+                            <span class="file-download-name">${escapeHtml(paste.filename)}</span>
+                            <a href="/api/file/${paste.id}" download class="file-download-btn primary-btn btn-small">⬇ Download</a>
+                        </div>
+                    </div>`;
+            }
+        } else {
+            bodyHtml = `<div class="paste-content">${escapeHtml(paste.content)}</div>`;
+        }
+
         return `
             <div class="paste-card">
                 <div class="paste-header">
                     <span class="paste-timestamp">${fullTimestamp}</span>
                     <div class="paste-actions">
-                        <button class="secondary-btn btn-small" onclick="copyPaste(${paste.id}, event)">
+                        <button class="secondary-btn btn-small" onclick="copyItem(${paste.id}, event)">
                             📋 Copy
                         </button>
                         <button class="danger-btn btn-small" onclick="showDeleteModal(${paste.id})">
@@ -235,7 +297,7 @@ function renderMainArea(pasteId) {
                         </button>
                     </div>
                 </div>
-                <div class="paste-content">${escapeHtml(paste.content)}</div>
+                ${bodyHtml}
             </div>
         `;
     }).join('');
@@ -360,33 +422,62 @@ async function refreshPastes() {
 }
 
 async function handleCreatePaste() {
+    const activeTab = document.querySelector('.modal-tab.active')?.dataset.tab ?? 'text';
+
+    // --- File upload path ---
+    if (activeTab === 'file') {
+        if (!selectedFile) return;
+        const saveBtn = document.getElementById('save-paste-btn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Uploading…';
+        try {
+            const result = await api.uploadFile(selectedFile);
+            state.pastes.unshift({
+                id: result.id,
+                content: '',
+                created_at: result.created_at,
+                filename: result.filename,
+                filepath: null,
+                mimetype: null,
+            });
+            renderSidebar(state.pastes, state.searchQuery);
+            selectPaste(result.id);
+            hideNewPasteModal();
+        } catch (err) {
+            console.error('Upload failed:', err);
+            alert(err.message || 'Upload failed. Please try again.');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        }
+        return;
+    }
+
+    // --- Text paste path ---
     const textarea = document.getElementById('new-paste-textarea');
     const content = textarea.value.trim();
-
     if (!content) return;
 
+    const saveBtn = document.getElementById('save-paste-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
     try {
         const newPaste = await api.createPaste(content);
-
-        // Add to state at the beginning
         state.pastes.unshift({
             id: newPaste.id,
             content: content,
             created_at: newPaste.created_at,
         });
-
-        // Re-render sidebar
         renderSidebar(state.pastes, state.searchQuery);
-
-        // Select the new paste
         selectPaste(newPaste.id);
-
-        // Close modal and clear textarea
         hideNewPasteModal();
         textarea.value = '';
     } catch (err) {
         console.error('Failed to create paste:', err);
         alert('Failed to create paste. Please try again.');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save';
     }
 }
 
@@ -428,29 +519,27 @@ function selectPaste(pasteId) {
     renderMainArea(pasteId);
 }
 
-function copyPaste(pasteId, event) {
+function copyItem(pasteId, event) {
     const paste = state.pastes.find(p => p.id === pasteId);
     if (!paste) return;
+
+    // For files copy the serve URL; for text copy the content
+    const textToCopy = paste.filename
+        ? `${location.origin}/api/file/${paste.id}`
+        : paste.content;
 
     const btn = event.target.closest('button');
     const originalText = btn.innerHTML;
 
-    // Try modern clipboard API first
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(paste.content)
+        navigator.clipboard.writeText(textToCopy)
             .then(() => {
                 btn.innerHTML = '✓ Copied';
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                }, 1500);
+                setTimeout(() => { btn.innerHTML = originalText; }, 1500);
             })
-            .catch(() => {
-                // Fallback if clipboard API fails
-                fallbackCopy(paste.content, btn, originalText);
-            });
+            .catch(() => fallbackCopy(textToCopy, btn, originalText));
     } else {
-        // Use fallback for HTTP or older browsers
-        fallbackCopy(paste.content, btn, originalText);
+        fallbackCopy(textToCopy, btn, originalText);
     }
 }
 
@@ -501,14 +590,28 @@ function handleSearch(event) {
 // Modal Management
 // ============================================================================
 
+function switchModalTab(tabName) {
+    document.querySelectorAll('.modal-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.toggle('hidden', panel.id !== `tab-panel-${tabName}`);
+    });
+    if (tabName === 'text') {
+        document.getElementById('new-paste-textarea').focus();
+    }
+}
+
 function showNewPasteModal() {
     document.getElementById('new-paste-modal').classList.remove('hidden');
-    document.getElementById('new-paste-textarea').focus();
+    switchModalTab('text');
 }
 
 function hideNewPasteModal() {
     document.getElementById('new-paste-modal').classList.add('hidden');
     document.getElementById('new-paste-textarea').value = '';
+    clearSelectedFile();
+    switchModalTab('text');
 }
 
 let pasteToDelete = null;
@@ -554,6 +657,55 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function getFileIcon(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return '🖼️';
+    if (ext === 'pdf') return '📄';
+    if (['zip', 'gz', 'tar', 'bz2', '7z', 'rar'].includes(ext)) return '🗜️';
+    return '📎';
+}
+
+function setupFileUpload() {
+    const dropZone = document.getElementById('file-drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const removeBtn = document.getElementById('file-remove-btn');
+
+    // Click drop zone → open file picker
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    // Drag & drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file) handleFilePicked(file);
+    });
+
+    // File input change
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files[0]) handleFilePicked(fileInput.files[0]);
+    });
+
+    // Remove button
+    removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearSelectedFile();
+    });
+}
+
+function handleFilePicked(file) {
+    if (file.size > 25 * 1024 * 1024) {
+        alert('File is too large (max 25 MB).');
+        return;
+    }
+    setSelectedFile(file);
 }
 
 function setupInfiniteScroll() {
@@ -602,12 +754,24 @@ function setupEventListeners() {
     document.getElementById('cancel-paste-btn').addEventListener('click', hideNewPasteModal);
     document.getElementById('save-paste-btn').addEventListener('click', handleCreatePaste);
 
+    // Modal tab switching
+    document.querySelectorAll('.modal-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            clearSelectedFile();
+            document.getElementById('new-paste-textarea').value = '';
+            switchModalTab(btn.dataset.tab);
+        });
+    });
+
     // Delete modal
     document.querySelector('#delete-modal .modal-overlay').addEventListener('click', hideDeleteModal);
     document.getElementById('cancel-delete-btn').addEventListener('click', hideDeleteModal);
     document.getElementById('confirm-delete-btn').addEventListener('click', () => {
         if (pasteToDelete) handleDeletePaste(pasteToDelete);
     });
+
+    // File upload drop zone
+    setupFileUpload();
 
     // Search
     document.getElementById('search-input').addEventListener('input', handleSearch);

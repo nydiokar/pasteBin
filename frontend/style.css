@@ -455,8 +455,11 @@ body {
 
 .modal-body {
     flex: 1;
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem 1.5rem;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
 .modal-body textarea {
@@ -541,4 +544,186 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
+}
+
+/* ============================================================================
+   File Upload — Drop Zone
+   ============================================================================ */
+
+.file-input-hidden {
+    display: none;
+}
+
+.file-drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 10px;
+    padding: 1.75rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: var(--bg-secondary);
+}
+
+.file-drop-zone:hover,
+.file-drop-zone.dragover {
+    border-color: var(--accent);
+    background: var(--bg-tertiary);
+}
+
+.file-drop-zone .file-drop-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.file-drop-zone p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.file-drop-zone .file-drop-hint {
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+}
+
+/* Selected-file bar */
+.file-selected-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.file-selected-name {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+.file-remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0 0.25rem;
+    flex-shrink: 0;
+}
+
+.file-remove-btn:hover {
+    color: var(--danger);
+}
+
+/* Modal tab bar */
+.modal-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 1.5rem;
+    background: var(--bg-primary);
+}
+
+.modal-tab {
+    padding: 0.625rem 1rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    margin-bottom: -1px;
+}
+
+.modal-tab:hover {
+    color: var(--text-primary);
+}
+
+.modal-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+/* Tab panels */
+.tab-panel {
+    width: 100%;
+}
+
+/* ============================================================================
+   File Upload — Sidebar Items
+   ============================================================================ */
+
+.paste-preview.file-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.file-icon {
+    flex-shrink: 0;
+}
+
+.file-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ============================================================================
+   File Upload — Main Area: Inline Image
+   ============================================================================ */
+
+.paste-content.file-content {
+    font-family: inherit;
+}
+
+.paste-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    display: block;
+}
+
+.file-caption {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+}
+
+/* ============================================================================
+   File Upload — Main Area: Download Box
+   ============================================================================ */
+
+.file-download-box {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+}
+
+.file-download-icon {
+    font-size: 1.75rem;
+    flex-shrink: 0;
+}
+
+.file-download-name {
+    flex: 1;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+.file-download-btn {
+    flex-shrink: 0;
+    text-decoration: none;
+    display: inline-block;
 }
