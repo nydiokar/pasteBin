@@ -211,21 +211,6 @@ def health() -> Response:
     return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()})
 
 
-@app.route('/api/debug', methods=['POST'])
-@require_auth
-def debug_request() -> Response:
-    """Temporary: echo back what was received so we can see what HTTP Shortcuts sends"""
-    return jsonify({
-        'content_type': request.content_type,
-        'content_length': request.content_length,
-        'headers': dict(request.headers),
-        'form_keys': list(request.form.keys()),
-        'files_keys': list(request.files.keys()),
-        'has_data': bool(request.data),
-        'data_len': len(request.data),
-        'data_preview': request.data[:200].decode('utf-8', errors='replace') if request.data else None,
-    })
-
 
 @app.route('/api/login', methods=['POST'])
 @limiter.limit("5 per minute")
@@ -258,7 +243,10 @@ def create_paste_endpoint() -> Response:
 
     # --- File upload: raw binary body (HTTP Shortcuts "File" body type) ---
     content_type = request.content_type or ''
-    if request.data and not content_type.startswith('application/json') and not content_type.startswith('multipart/'):
+    # HTTP Shortcuts sends raw bytes with content_type "application/json" — detect by checking
+    # if the body starts with a known binary signature rather than trusting the content-type header
+    is_json_text = request.data and request.data[:1] in (b'{', b'[')
+    if request.data and not is_json_text and not content_type.startswith('multipart/'):
         if request.content_length and request.content_length > MAX_UPLOAD_SIZE:
             return jsonify({'error': 'File too large (max 25 MB)'}), 413
 
