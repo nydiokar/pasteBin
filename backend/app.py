@@ -125,6 +125,21 @@ def create_file_entry(original_filename: str, stored_filename: str, mimetype: st
     return file_id
 
 
+def _detect_mime(data: bytes) -> str:
+    """Detect mime type from magic bytes."""
+    if data[:3] == b'\xff\xd8\xff':
+        return 'image/jpeg'
+    if data[:8] == b'\x89PNG\r\n\x1a\n':
+        return 'image/png'
+    if data[:6] in (b'GIF87a', b'GIF89a'):
+        return 'image/gif'
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        return 'image/webp'
+    if data[:4] == b'%PDF':
+        return 'application/pdf'
+    return 'application/octet-stream'
+
+
 def get_pastes(limit: int = 50, offset: int = 0) -> Tuple[List[Dict[str, Any]], int]:
     """Get pastes with pagination, return (pastes, total_count)"""
     conn = get_db()
@@ -254,13 +269,18 @@ def create_paste_endpoint() -> Response:
         if len(raw) > MAX_UPLOAD_SIZE:
             return jsonify({'error': 'File too large (max 25 MB)'}), 413
 
-        # Derive filename from Content-Disposition header or fall back to mime type
+        # Detect real mime type from magic bytes — ignore the content-type header
+        real_mime = _detect_mime(raw)
+
+        # Derive filename from Content-Disposition header or fall back to detected mime
         disposition = request.headers.get('Content-Disposition', '')
         original_name = ''
         if 'filename=' in disposition:
             original_name = disposition.split('filename=')[-1].strip().strip('"\'')
         if not original_name:
-            ext = mimetypes.guess_extension(content_type.split(';')[0].strip()) or '.bin'
+            ext = mimetypes.guess_extension(real_mime) or '.bin'
+            # guess_extension can return .jpe or .jfif for JPEG — normalise
+            ext = {'.jpe': '.jpg', '.jfif': '.jpg', '.jfif': '.jpg'}.get(ext, ext)
             original_name = f'upload{ext}'
 
         original_name = sanitize_filename(original_name)
@@ -276,7 +296,7 @@ def create_paste_endpoint() -> Response:
         with open(dest, 'wb') as f:
             f.write(raw)
 
-        mime = content_type.split(';')[0].strip() or mimetypes.guess_type(stored_name)[0] or 'application/octet-stream'
+        mime = real_mime
         file_id = create_file_entry(original_name, stored_name, mime)
 
         return jsonify({
