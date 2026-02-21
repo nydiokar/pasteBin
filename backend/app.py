@@ -254,62 +254,31 @@ def logout() -> Response:
 @require_auth
 @limiter.limit("30 per minute")
 def create_paste_endpoint() -> Response:
-    """Create a text paste or upload a file — auto-detected from request content."""
+    """Create a text paste. Accepts JSON {"content":"..."} or raw plain text body."""
+    content = ''
+    json_data = request.get_json(silent=True)
+    if json_data and isinstance(json_data, dict):
+        content = json_data.get('content', '').strip()
+    elif request.data:
+        content = request.data.decode('utf-8', errors='replace').strip()
 
-    # --- File upload: raw binary body (HTTP Shortcuts "File" body type) ---
-    content_type = request.content_type or ''
-    # HTTP Shortcuts sends raw bytes with content_type "application/json" — detect by checking
-    # if the body starts with a known binary signature rather than trusting the content-type header
-    is_json_text = request.data and request.data[:1] in (b'{', b'[')
-    if request.data and not is_json_text and not content_type.startswith('multipart/'):
-        if request.content_length and request.content_length > MAX_UPLOAD_SIZE:
-            return jsonify({'error': 'File too large (max 25 MB)'}), 413
+    if not content:
+        return jsonify({'error': 'Content cannot be empty'}), 400
+    if len(content) > 1_000_000:
+        return jsonify({'error': 'Content too large (max 1MB)'}), 400
 
-        raw = request.data
-        if len(raw) > MAX_UPLOAD_SIZE:
-            return jsonify({'error': 'File too large (max 25 MB)'}), 413
+    paste_id = create_paste(content)
+    return jsonify({'id': paste_id, 'created_at': datetime.utcnow().isoformat()}), 201
 
-        # Detect real mime type from magic bytes — ignore the content-type header
-        real_mime = _detect_mime(raw)
 
-        # Derive filename from Content-Disposition header or fall back to detected mime
-        disposition = request.headers.get('Content-Disposition', '')
-        original_name = ''
-        if 'filename=' in disposition:
-            original_name = disposition.split('filename=')[-1].strip().strip('"\'')
-        if not original_name:
-            ext = mimetypes.guess_extension(real_mime) or '.bin'
-            # guess_extension can return .jpe or .jfif for JPEG — normalise
-            ext = {'.jpe': '.jpg', '.jfif': '.jpg', '.jfif': '.jpg'}.get(ext, ext)
-            original_name = f'upload{ext}'
+@app.route('/api/upload', methods=['POST'])
+@require_auth
+@limiter.limit("20 per minute")
+def upload_file_endpoint() -> Response:
+    """Upload a file. Accepts multipart/form-data (web UI) or raw binary body (HTTP Shortcuts)."""
 
-        original_name = sanitize_filename(original_name)
-        if not original_name:
-            original_name = 'upload.bin'
-
-        stored_name = dedupe_filename(original_name)
-        dest = os.path.join(UPLOAD_DIR, stored_name)
-
-        if not os.path.realpath(dest).startswith(os.path.realpath(UPLOAD_DIR)):
-            return jsonify({'error': 'Invalid filename'}), 400
-
-        with open(dest, 'wb') as f:
-            f.write(raw)
-
-        mime = real_mime
-        file_id = create_file_entry(original_name, stored_name, mime)
-
-        return jsonify({
-            'id': file_id,
-            'filename': original_name,
-            'created_at': datetime.utcnow().isoformat()
-        }), 201
-
-    # --- File upload: multipart/form-data with a 'file' field ---
+    # --- multipart/form-data: web UI ---
     if 'file' in request.files:
-        if request.content_length and request.content_length > MAX_UPLOAD_SIZE:
-            return jsonify({'error': 'File too large (max 25 MB)'}), 413
-
         file = request.files['file']
         if not file.filename:
             return jsonify({'error': 'No filename'}), 400
@@ -320,45 +289,42 @@ def create_paste_endpoint() -> Response:
 
         stored_name = dedupe_filename(original_name)
         dest = os.path.join(UPLOAD_DIR, stored_name)
-
         if not os.path.realpath(dest).startswith(os.path.realpath(UPLOAD_DIR)):
             return jsonify({'error': 'Invalid filename'}), 400
 
         file.save(dest)
-
         if os.path.getsize(dest) > MAX_UPLOAD_SIZE:
             os.remove(dest)
             return jsonify({'error': 'File too large (max 25 MB)'}), 413
 
         mime = mimetypes.guess_type(stored_name)[0] or 'application/octet-stream'
         file_id = create_file_entry(original_name, stored_name, mime)
+        return jsonify({'id': file_id, 'filename': original_name, 'created_at': datetime.utcnow().isoformat()}), 201
 
-        return jsonify({
-            'id': file_id,
-            'filename': original_name,
-            'created_at': datetime.utcnow().isoformat()
-        }), 201
+    # --- raw binary body: HTTP Shortcuts ---
+    raw = request.data
+    if not raw:
+        return jsonify({'error': 'No file data received'}), 400
+    if len(raw) > MAX_UPLOAD_SIZE:
+        return jsonify({'error': 'File too large (max 25 MB)'}), 413
 
-    # --- Text paste: JSON {"content": "..."} or raw plain text body ---
-    content = ''
-    json_data = request.get_json(silent=True)
-    if json_data and isinstance(json_data, dict):
-        content = json_data.get('content', '').strip()
-    elif request.data:
-        content = request.data.decode('utf-8', errors='replace').strip()
+    real_mime = _detect_mime(raw)
+    ext_map = {'.jpe': '.jpg', '.jfif': '.jpg', '.jpe_': '.jpg'}
+    ext = ext_map.get(mimetypes.guess_extension(real_mime) or '.bin',
+                      mimetypes.guess_extension(real_mime) or '.bin')
+    original_name = f'upload{ext}'
 
-    if not content:
-        return jsonify({'error': 'Content cannot be empty'}), 400
+    original_name = sanitize_filename(original_name)
+    stored_name = dedupe_filename(original_name)
+    dest = os.path.join(UPLOAD_DIR, stored_name)
+    if not os.path.realpath(dest).startswith(os.path.realpath(UPLOAD_DIR)):
+        return jsonify({'error': 'Invalid filename'}), 400
 
-    if len(content) > 1_000_000:
-        return jsonify({'error': 'Content too large (max 1MB)'}), 400
+    with open(dest, 'wb') as f:
+        f.write(raw)
 
-    paste_id = create_paste(content)
-
-    return jsonify({
-        'id': paste_id,
-        'created_at': datetime.utcnow().isoformat()
-    }), 201
+    file_id = create_file_entry(original_name, stored_name, real_mime)
+    return jsonify({'id': file_id, 'filename': original_name, 'created_at': datetime.utcnow().isoformat()}), 201
 
 
 @app.route('/api/pastes', methods=['GET'])
