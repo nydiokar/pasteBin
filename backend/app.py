@@ -240,6 +240,47 @@ def logout() -> Response:
 def create_paste_endpoint() -> Response:
     """Create a text paste or upload a file — auto-detected from request content."""
 
+    # --- File upload: raw binary body (HTTP Shortcuts "File" body type) ---
+    content_type = request.content_type or ''
+    if request.data and not content_type.startswith('application/json') and not content_type.startswith('multipart/'):
+        if request.content_length and request.content_length > MAX_UPLOAD_SIZE:
+            return jsonify({'error': 'File too large (max 25 MB)'}), 413
+
+        raw = request.data
+        if len(raw) > MAX_UPLOAD_SIZE:
+            return jsonify({'error': 'File too large (max 25 MB)'}), 413
+
+        # Derive filename from Content-Disposition header or fall back to mime type
+        disposition = request.headers.get('Content-Disposition', '')
+        original_name = ''
+        if 'filename=' in disposition:
+            original_name = disposition.split('filename=')[-1].strip().strip('"\'')
+        if not original_name:
+            ext = mimetypes.guess_extension(content_type.split(';')[0].strip()) or '.bin'
+            original_name = f'upload{ext}'
+
+        original_name = sanitize_filename(original_name)
+        if not original_name:
+            original_name = 'upload.bin'
+
+        stored_name = dedupe_filename(original_name)
+        dest = os.path.join(UPLOAD_DIR, stored_name)
+
+        if not os.path.realpath(dest).startswith(os.path.realpath(UPLOAD_DIR)):
+            return jsonify({'error': 'Invalid filename'}), 400
+
+        with open(dest, 'wb') as f:
+            f.write(raw)
+
+        mime = content_type.split(';')[0].strip() or mimetypes.guess_type(stored_name)[0] or 'application/octet-stream'
+        file_id = create_file_entry(original_name, stored_name, mime)
+
+        return jsonify({
+            'id': file_id,
+            'filename': original_name,
+            'created_at': datetime.utcnow().isoformat()
+        }), 201
+
     # --- File upload: multipart/form-data with a 'file' field ---
     if 'file' in request.files:
         if request.content_length and request.content_length > MAX_UPLOAD_SIZE:
