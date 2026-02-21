@@ -672,10 +672,7 @@ function setupFileUpload() {
     const fileInput = document.getElementById('file-input');
     const removeBtn = document.getElementById('file-remove-btn');
 
-    // Click drop zone → open file picker
-    dropZone.addEventListener('click', () => fileInput.click());
-
-    // Drag & drop
+    // Drag & drop (desktop)
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropZone.classList.add('dragover');

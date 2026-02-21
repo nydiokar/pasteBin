@@ -523,7 +523,15 @@ body {
 
     .modal-content {
         width: 95%;
-        max-height: 90vh;
+        max-height: 92vh;
+    }
+
+    .modal-body textarea {
+        min-height: 180px;
+    }
+
+    .file-drop-zone {
+        padding: 2rem 1rem;
     }
 }
 
