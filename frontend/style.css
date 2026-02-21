@@ -518,7 +518,21 @@ body {
     }
 
     .paste-card {
-        padding: 1.5rem;
+        padding: 1rem;
+    }
+
+    .paste-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .paste-timestamp {
+        width: 100%;
+    }
+
+    .paste-actions {
+        width: 100%;
+        justify-content: flex-end;
     }
 
     .modal-content {
@@ -532,6 +546,11 @@ body {
 
     .file-drop-zone {
         padding: 2rem 1rem;
+    }
+
+    .modal-tab {
+        padding: 0.5rem 0.875rem;
+        font-size: 0.875rem;
     }
 }
 

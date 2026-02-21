@@ -515,6 +515,12 @@ function selectPaste(pasteId) {
         item.classList.toggle('active', item.dataset.pasteId == pasteId);
     });
 
+    // Close sidebar on mobile so the main content is visible
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+    }
+
     // Render in main area
     renderMainArea(pasteId);
 }
