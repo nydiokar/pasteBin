@@ -339,9 +339,13 @@ def create_paste_endpoint() -> Response:
             'created_at': datetime.utcnow().isoformat()
         }), 201
 
-    # --- Text paste: JSON body with 'content' field ---
-    data = request.get_json(silent=True) or {}
-    content: str = data.get('content', '').strip()
+    # --- Text paste: JSON {"content": "..."} or raw plain text body ---
+    content = ''
+    json_data = request.get_json(silent=True)
+    if json_data and isinstance(json_data, dict):
+        content = json_data.get('content', '').strip()
+    elif request.data:
+        content = request.data.decode('utf-8', errors='replace').strip()
 
     if not content:
         return jsonify({'error': 'Content cannot be empty'}), 400
