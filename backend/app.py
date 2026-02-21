@@ -238,14 +238,50 @@ def logout() -> Response:
 @require_auth
 @limiter.limit("30 per minute")
 def create_paste_endpoint() -> Response:
-    """Create new paste"""
-    data = request.get_json()
+    """Create a text paste or upload a file — auto-detected from request content."""
+
+    # --- File upload: multipart/form-data with a 'file' field ---
+    if 'file' in request.files:
+        if request.content_length and request.content_length > MAX_UPLOAD_SIZE:
+            return jsonify({'error': 'File too large (max 25 MB)'}), 413
+
+        file = request.files['file']
+        if not file.filename:
+            return jsonify({'error': 'No filename'}), 400
+
+        original_name = sanitize_filename(file.filename)
+        if not original_name:
+            return jsonify({'error': 'Invalid filename'}), 400
+
+        stored_name = dedupe_filename(original_name)
+        dest = os.path.join(UPLOAD_DIR, stored_name)
+
+        if not os.path.realpath(dest).startswith(os.path.realpath(UPLOAD_DIR)):
+            return jsonify({'error': 'Invalid filename'}), 400
+
+        file.save(dest)
+
+        if os.path.getsize(dest) > MAX_UPLOAD_SIZE:
+            os.remove(dest)
+            return jsonify({'error': 'File too large (max 25 MB)'}), 413
+
+        mime = mimetypes.guess_type(stored_name)[0] or 'application/octet-stream'
+        file_id = create_file_entry(original_name, stored_name, mime)
+
+        return jsonify({
+            'id': file_id,
+            'filename': original_name,
+            'created_at': datetime.utcnow().isoformat()
+        }), 201
+
+    # --- Text paste: JSON body with 'content' field ---
+    data = request.get_json(silent=True) or {}
     content: str = data.get('content', '').strip()
 
     if not content:
         return jsonify({'error': 'Content cannot be empty'}), 400
 
-    if len(content) > 1_000_000:  # 1MB limit
+    if len(content) > 1_000_000:
         return jsonify({'error': 'Content too large (max 1MB)'}), 400
 
     paste_id = create_paste(content)
