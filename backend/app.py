@@ -211,6 +211,22 @@ def health() -> Response:
     return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()})
 
 
+@app.route('/api/debug', methods=['POST'])
+@require_auth
+def debug_request() -> Response:
+    """Temporary: echo back what was received so we can see what HTTP Shortcuts sends"""
+    return jsonify({
+        'content_type': request.content_type,
+        'content_length': request.content_length,
+        'headers': dict(request.headers),
+        'form_keys': list(request.form.keys()),
+        'files_keys': list(request.files.keys()),
+        'has_data': bool(request.data),
+        'data_len': len(request.data),
+        'data_preview': request.data[:200].decode('utf-8', errors='replace') if request.data else None,
+    })
+
+
 @app.route('/api/login', methods=['POST'])
 @limiter.limit("5 per minute")
 def login() -> Response:
